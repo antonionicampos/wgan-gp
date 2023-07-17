@@ -5,9 +5,9 @@ from typing import Dict
 
 
 class Critic(tf.keras.Model):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, hidden_dim, *args, **kwargs):
         super().__init__(name="critic", *args, **kwargs)
-        self.hidden_layer = tf.keras.layers.Dense(32, activation="relu")
+        self.hidden_layer = tf.keras.layers.Dense(hidden_dim, activation="relu")
         self.output_layer = tf.keras.layers.Dense(1)
 
     def call(self, x):
@@ -16,10 +16,10 @@ class Critic(tf.keras.Model):
 
 
 class Generator(tf.keras.Model):
-    def __init__(self, input_dim, *args, **kwargs):
+    def __init__(self, output_dim, hidden_dim, *args, **kwargs):
         super().__init__(name="generator", *args, **kwargs)
-        self.hidden_layer = tf.keras.layers.Dense(32, activation="relu")
-        self.output_layer = tf.keras.layers.Dense(input_dim)
+        self.hidden_layer = tf.keras.layers.Dense(hidden_dim, activation="relu")
+        self.output_layer = tf.keras.layers.Dense(output_dim, activation="sigmoid")
 
     def call(self, x):
         hidden = self.hidden_layer(x)
@@ -64,6 +64,7 @@ class WGAN(tf.keras.Model):
         and added to the critic loss.
         """
         # Get the interpolated samples
+
         # from https://keras.io/examples/generative/wgan_gp/#create-the-wgangp-model
         # noise = tf.random.normal((batch_size, 1), 0.0, 1.0)
         # diff = fake_samples - real_samples
@@ -71,6 +72,9 @@ class WGAN(tf.keras.Model):
 
         # original paper
         random_number = tf.random.uniform((batch_size, 1))
+        # print(random_number.dtype)
+        # print(real_samples.dtype)
+        # print(fake_samples.dtype)
         interpolated = random_number * real_samples + (1 - random_number) * fake_samples
 
         with tf.GradientTape() as tape:
@@ -150,9 +154,7 @@ def generator_loss(fake_sample: tf.Tensor) -> float:
     return -tf.reduce_mean(fake_sample)
 
 
-def main() -> None:
-    epochs = 20
-    batch_size = 64
+def main(dataset: tf.data.Dataset, epochs: int) -> None:
     latent_dim = 8
     lambda_ = 10.0
     n_critic = 5
@@ -161,7 +163,7 @@ def main() -> None:
 
     critic = Critic()
     # TODO get from data the input dim
-    generator = Generator(input_dim=25)
+    generator = Generator(input_dim=20)
 
     critic_optimizer = tf.keras.optimizers.Adam(
         learning_rate=alpha, beta_1=beta_1, beta_2=beta_2
@@ -189,8 +191,9 @@ def main() -> None:
 
     # Start training
     # TODO Load SIRR composition data
-    # wgan.fit(train_images, batch_size=batch_size, epochs=epochs)
+    # callbacks = [
+    #     tf.keras.callbacks.EarlyStopping(monitor="generator_loss", patience=100)
+    # ]
 
-
-if __name__ == "__main__":
-    main()
+    history = wgan.fit(dataset, epochs=epochs)
+    return history.history
